@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { predictPrice } from "../api/predictionClient";
 
 interface PredictionFormProps {
@@ -6,6 +7,8 @@ interface PredictionFormProps {
 }
 
 function PredictionForm({ onPrediction }: PredictionFormProps) {
+  const navigate = useNavigate();
+
   const [locations, setLocations] = useState<string[]>([]);
 
   const [location, setLocation] = useState("");
@@ -26,17 +29,30 @@ function PredictionForm({ onPrediction }: PredictionFormProps) {
     fetch("/locations.json")
       .then((response) => response.json())
       .then((data) => setLocations(data))
-      .catch(() => setLocations([]));
+      .catch(() => {
+        setError("Could not load locations.");
+      });
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    setLoading(true);
     setError("");
 
+    if (!location || !transaction || !furnishing) {
+      setError("Please fill in all required fields.");
+      return;
+    }
+
+    if (Number(carpetArea) <= 0) {
+      setError("Carpet area must be greater than 0.");
+      return;
+    }
+
+    setLoading(true);
+
     try {
-      const data = await predictPrice({
+      const result = await predictPrice({
         location,
         transaction,
         furnishing,
@@ -49,9 +65,18 @@ function PredictionForm({ onPrediction }: PredictionFormProps) {
         floor_num: Number(floorNum),
       });
 
-      onPrediction(data.predicted_price);
-    } catch {
-      setError("Unable to connect to the prediction server.");
+      onPrediction(result.predicted_price);
+
+      navigate("/result", {
+        state: {
+          price: result.predicted_price,
+        },
+      });
+    } catch (err) {
+      console.error(err);
+      setError(
+        "Prediction failed. Please check that the backend is running."
+      );
     } finally {
       setLoading(false);
     }
@@ -63,6 +88,7 @@ function PredictionForm({ onPrediction }: PredictionFormProps) {
       style={{
         display: "flex",
         flexDirection: "column",
+        gap: "8px",
         width: "100%",
       }}
     >
@@ -84,25 +110,33 @@ function PredictionForm({ onPrediction }: PredictionFormProps) {
 
       <label>Transaction</label>
 
-      <input
+      <select
         value={transaction}
         onChange={(e) => setTransaction(e.target.value)}
-        placeholder="e.g. New Property"
         required
-      />
+      >
+        <option value="">Select Transaction</option>
+        <option value="New Property">New Property</option>
+        <option value="Resale">Resale</option>
+      </select>
 
       <label>Furnishing</label>
 
-      <input
+      <select
         value={furnishing}
         onChange={(e) => setFurnishing(e.target.value)}
-        placeholder="e.g. Furnished"
         required
-      />
+      >
+        <option value="">Select Furnishing</option>
+        <option value="Furnished">Furnished</option>
+        <option value="Semi-Furnished">Semi-Furnished</option>
+        <option value="Unfurnished">Unfurnished</option>
+      </select>
 
       <label>Facing</label>
 
       <input
+        type="text"
         value={facing}
         onChange={(e) => setFacing(e.target.value)}
         placeholder="e.g. East"
@@ -111,6 +145,7 @@ function PredictionForm({ onPrediction }: PredictionFormProps) {
       <label>Ownership</label>
 
       <input
+        type="text"
         value={ownership}
         onChange={(e) => setOwnership(e.target.value)}
         placeholder="e.g. Freehold"
