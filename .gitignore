@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+
+.venv/
+venv/
+.env
+
+node_modules/
+dist/
+
+.ipynb_checkpoints/
+
+house_price_data/
+*.csv
+
+.DS_Store
